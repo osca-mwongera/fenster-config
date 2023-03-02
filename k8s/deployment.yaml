@@ -25,7 +25,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: fenster
-          image: "docker.io/oscam/fenster:v0.1"
+          image: "docker.io/oscam/fenster:v0.2"
           imagePullPolicy: Always
           resources:
             limits:
