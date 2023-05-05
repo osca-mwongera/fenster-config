@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+spec:
+  params:
+  workspaces:
+    - name: shared-workspace
+  steps:
+    - name: clean
+      image: registry.access.redhat.com/ubi8/python-39
+      workingDir: "$(workspaces.shared-workspace.path)"
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        echo "Cleaning up $(workspaces.shared-workspace.path)"
+        rm -R -- */
