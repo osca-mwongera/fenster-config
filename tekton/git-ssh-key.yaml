@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-ssh-key
+  namespace: tekton-pipelines
+  annotations:
+    tekton.dev/git-0: github.com # Described below
+type: kubernetes.io/ssh-auth
+data:
+  ssh-privatekey: <Redacted data>
+  known_hosts: <Redacted data>
+  ssh-publickey: <Redacted data>
