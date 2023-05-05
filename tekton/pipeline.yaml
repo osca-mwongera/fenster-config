@@ -1,0 +1,81 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: build-and-deploy-pipeline
+spec:
+  workspaces:
+    - name: shared-data
+      description: A shared storage for the pipeline
+  params:
+    - name: gitUrl
+      description: Git repository url
+    - name: gitRevision
+      description: Revision to checkout. (branch, tag, sha, ref, etc...), a tag to the resulting image
+    - name: pathToContext
+      description: The path to the build context, used by Kaniko - within the workspace
+      default: kubernetes
+    - name: DOCKERFILE
+      description: Path to the Dockerfile to build.
+      default: ./Dockerfile
+    - name: imageName
+      description: Image name including repository
+    - name: environment
+      description: Tha name od the development environment to be updated
+    - name: configGitUrl
+      description: Application configuration git repository
+  tasks:
+    - name: clone-repo
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+          subPath: build
+      params:
+        - name: url
+          value: "$(params.gitUrl)"
+        - name: subdirectory
+          value: "."
+        - name: deleteExisting
+          value: "true"
+        - name: revision
+          value: "$(params.gitRevision)"
+    - name: build-and-push-image
+      taskRef:
+        name: buildah
+      runAfter: ["clone-repo"]
+      workspaces:
+        - name: source
+          workspace: shared-data
+          subPath: build
+      params:
+        - name: IMAGE
+          value: "$(params.imageName):$(params.gitRevision)"
+        - name: DOCKERFILE
+          value: "$(params.DOCKERFILE)"
+    - name: update-manifest-files
+      taskRef:
+        name: deploy
+      runAfter: ["build-and-push-image"]
+      workspaces:
+        - name: config
+          workspace: shared-data
+          subPath: deploy
+      params:
+        - name: environment
+          value: "$(params.environment)"
+        - name: config-git-url
+          value: "$(params.configGitUrl)"
+        - name: image-name
+          value: "$(params.imageName)"
+        - name: build-revision
+          value: "$(params.gitRevision)"
+  finally:
+    - name: cleanup
+      taskRef:
+        name: cleanup
+      workspaces:
+        - name: shared-workspace
+          workspace: shared-data
+
+
