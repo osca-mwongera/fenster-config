@@ -1,0 +1,51 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy
+spec:
+  params:
+    - name: environment
+    - name: config-git-url
+    - name: image-name
+    - name: build-revision
+  workspaces:
+    - name: config
+  steps:
+    - name: git-checkout
+      image: alpine/git:v2.36.3
+      workingDir: "$(workspaces.config.path)"
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        
+        eval $(ssh-agent)
+        ssh-add ~/.ssh/id_*
+        git config --global core.sshCommand 'ssh -o StrictHostKeyChecking=accept-new'
+        git config --global --add safe.directory '*'
+        git init
+        git remote add origin $(params.config-git-url)
+        git fetch --depth 1 origin $(params.environment)
+        git checkout $(params.environment)
+
+    - name: update-manifest-files
+      image: alpine/git:v2.36.3
+      workingDir: "$(workspaces.config.path)/k8s"
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        echo "updating $(inputs.params.environment) image to $(inputs.params.image-name):$(inputs.params.build-revision)"
+        sed -i "s|image:.*|image: \"$(inputs.params.image-name):$(inputs.params.build-revision)\"|" deployment.yaml
+
+    - name: commit-push-changes-gitops
+      image: alpine/git:v2.36.3
+      workingDir: "$(workspaces.config.path)/k8s"
+      script: |
+        #!/usr/bin/env sh
+        set -e
+        git config --global user.email "oscamwongera@gmail.com"
+        git config --global user.name "Osca Mwongera"
+        git add -u
+        git commit --allow-empty -m "[tekton] updating $(inputs.params.environment) image to $(inputs.params.build-revision)"
+        eval $(ssh-agent)
+        ssh-add ~/.ssh/id_*
+        git push origin $(params.environment)
